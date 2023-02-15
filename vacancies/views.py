@@ -12,7 +12,7 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 
 from first_django import settings
 from vacancies.models import Vacancy, Skill
-from vacancies.serializers import VacancySerializer
+from vacancies.serializers import VacancySerializer, VacancyDetailSerializer
 
 
 def hello(request):
@@ -72,16 +72,7 @@ class VacancyDetailView(DetailView):
     def get(self, request, *args, **kwargs):
         vacancy = self.get_object()
 
-        return JsonResponse({
-            "id": vacancy.id,
-            "text": vacancy.text,
-            "slug": vacancy.slug,
-            "status": vacancy.status,
-            "created": vacancy.created,
-            "user": vacancy.user_id,
-            # "skills": list(vacancy.skills.values_list("name", flat=True))
-            "skills": list(map(str, vacancy.skills.all()))
-        })
+        return JsonResponse(VacancyDetailSerializer(vacancy).data)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
