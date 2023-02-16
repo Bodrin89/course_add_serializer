@@ -27,6 +27,7 @@ class Vacancy(models.Model):
     created = models.DateField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     skills = models.ManyToManyField(Skill)
+    likes = models.IntegerField(default=0)
 
     class Meta:
         verbose_name = 'Вакансия'

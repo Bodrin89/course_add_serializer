@@ -2,7 +2,7 @@ import json
 
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Count, Avg, Q
+from django.db.models import Count, Avg, Q, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils.decorators import method_decorator
@@ -106,3 +106,17 @@ class UserVacancyDetailView(View):
         }
 
         return JsonResponse(response)
+
+
+class VacancyLikeView(UpdateAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyDetailSerializer
+
+    def put(self, request, *args, **kwargs):
+        # pk__in Это фильтрация по pk который входит в список
+        # F Это класc который достает значение поля. update - обновляет значение поля 'likes'
+        Vacancy.objects.filter(pk__in=request.data).update(likes=F('likes') + 1)
+        return JsonResponse(
+            VacancyDetailSerializer(Vacancy.objects.filter(pk__in=request.data), many=True).data,
+            safe=False
+        )
