@@ -32,6 +32,10 @@ class Vacancy(models.Model):
         verbose_name = 'Вакансия'
         verbose_name_plural = 'Вакансии'
 
+    @property
+    def username(self):
+        return self.user.username if self.user else None
+
 
     def __str__(self):
         return self.slug

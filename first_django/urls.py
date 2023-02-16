@@ -15,20 +15,28 @@ Including another URLconf
 """
 from django.conf.urls.static import static
 from django.contrib import admin
+from rest_framework import routers
 
 from first_django import settings
 from vacancies import views
 
 from django.urls import path, include
 
+from vacancies.views import SkillsViewSet
 
+router = routers.SimpleRouter()
+router.register('skill', SkillsViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api_auth/', include('rest_framework.urls')),
     path('hello/', views.hello),
     path('vacancy/', include('vacancies.urls')),
-    path('company/', include('companies.urls'))
+    path('company/', include('companies.urls')),
+
 ]
+
+urlpatterns += router.urls
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

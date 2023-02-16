@@ -2,159 +2,82 @@ import json
 
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.viewsets import ModelViewSet
 
 from first_django import settings
 from vacancies.models import Vacancy, Skill
-from vacancies.serializers import VacancySerializer, VacancyDetailSerializer
+from vacancies.serializers import VacancyDetailSerializer, VacancyListSerializer, VacancyCreateSerializer, \
+    VacancyUpdateSerializer, VacancyDestroySerializer, SkillSerializer
 
 
 def hello(request):
     return HttpResponse('Hello world')
 
 
-class VacancyListView(ListView):
-    model = Vacancy
+class SkillsViewSet(ModelViewSet):
+    queryset = Skill.objects.all()
+    serializer_class = SkillSerializer
+
+
+class VacancyListView(ListAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyListSerializer
 
     def get(self, request, *args, **kwargs):
-        super().get(self, request, *args, **kwargs)
+        vacancy_text = request.GET.get('text', None)
+        # Поиск в таблице Vacancy во всех полях по вхождению подстроки в строку
+        if vacancy_text:
+            self.queryset = self.queryset.filter(text__icontains=vacancy_text)
 
-        if request.method == 'GET':
-            search_text = request.GET.get('text', None)
-            if search_text:
-                self.object_list = self.object_list.filter(text=search_text)
+        # # Поиск по связанной таблице Skill по полю name по вхождению подстроки в строку
+        # # Метод filter по умолчанию работает как "И"
+        # skill_name = request.GET.get('skill', None)
+        # if skill_name:
+        #     self.queryset = self.queryset.filter(skills__name__icontains=skill_name)
 
-            #  Сортировка по text и по slug ("-text" в обратном порядке)
-            # select_related оптимизирует запрос к БД (делает JOIN) работает только с ForeignKey
-            # prefetch_related оптимизирует запрос к БД (делает JOIN) работает с ManyToMany
-            # values_list создает каждый раз отдельный запрос, по этому для обращения к ManyToMany ко всей
-            # колонке сразу использовать map(str, vacancy.skills.all())
-            self.object_list = self.object_list.select_related('user').prefetch_related('skills').order_by("text",
-                                                                                                           "slug")
-            #  Пагинация (1 параметр - это список всех вакансий, 2 параметр - это кол-во вакансий на странице)
-            paginator = Paginator(self.object_list, settings.TOTAL_ON_PAGE)
-            page_number = request.GET.get('page')
-            page_obj = paginator.get_page(page_number)
+        #  Поиск по связанной таблице Skill по полю name по вхождению подстроки в строку с
+        #  использованием "ИЛИ" в списке
+        skills = request.GET.getlist('skill', None)  # getlist позволяет достать из GET целый список, простой get
+        # вернет только первый элемент
+        if skills:
+            skill_q = None
+            for skill in skills:
+                if skill_q is None:
+                    skill_q = Q(skills__name__icontains=skill)  # Q это служебный класс для сбора условий фильтрации
+                else:
+                    skill_q |= Q(skills__name__icontains=skill)
+            if skill_q:
+                self.queryset = self.queryset.filter(skill_q)
 
-            # vacancies = []
-            # for vacancy in page_obj:
-            #     vacancies.append({
-            #         "id": vacancy.id,
-            #         "text": vacancy.text,
-            #         "slug": vacancy.slug,
-            #         "status": vacancy.status,
-            #         "created": vacancy.created,
-            #         "username": vacancy.user.username,
-            #         # "skills": list(vacancy.skills.values_list("name", flat=True))
-            #         "skills": list(map(str, vacancy.skills.all()))
-            #     })
-
-            list(map(lambda x: setattr(x, 'username', x.user.username if x.user else None), page_obj))
-
-            response = {
-                "items": VacancySerializer(page_obj, many=True).data,
-                "num_page": paginator.num_pages,
-                "total": paginator.count
-            }
-
-            return JsonResponse(response, safe=False)
+        return super().get(request, *args, **kwargs)
 
 
-class VacancyDetailView(DetailView):
-    model = Vacancy
-
-    def get(self, request, *args, **kwargs):
-        vacancy = self.get_object()
-
-        return JsonResponse(VacancyDetailSerializer(vacancy).data)
+class VacancyDetailView(RetrieveAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyDetailSerializer
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class VacancyCreateView(CreateView):
-    model = Vacancy
-    fields = ['user', 'slug', 'text', 'status', 'created', 'skills']
-
-    def post(self, request, *args, **kwargs):
-        vacancy_data = json.loads(request.body)
-
-        vacancy = Vacancy.objects.create(
-            slug=vacancy_data['slug'],
-            text=vacancy_data['text'],
-            status=vacancy_data['status'],
-        )
-
-        # Обработка ошибки 404
-        vacancy.user = get_object_or_404(User, pk=vacancy_data['user_id'])
-
-        #  Добавляем созданные записи в таблицу vacancy в поле skill (ManyToMany)
-        for skill in vacancy_data['skills']:
-            skill_obj, created = Skill.objects.get_or_create(name=skill, defaults={"is_active": True})
-            vacancy.skills.add(skill_obj)
-
-        vacancy.save()
-
-        return JsonResponse({
-            "id": vacancy.id,
-            "text": vacancy.text,
-            "slug": vacancy.slug,
-            "status": vacancy.status,
-            "created": vacancy.created,
-            "user": vacancy.user_id,
-            "skills": list(map(str, vacancy.skills.all()))
-        })
+class VacancyCreateView(CreateAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyCreateSerializer
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class VacancyUpdateView(UpdateView):
-    model = Vacancy
-    fields = ['slug', 'text', 'status', 'skills']
-
-    def patch(self, request, *args, **kwargs):
-        super().post(self, request, *args, **kwargs)
-        vacancy_data = json.loads(request.body)
-
-        self.object.slug = vacancy_data['slug']
-        self.object.text = vacancy_data['text']
-        self.object.status = vacancy_data['status']
-
-        for skill in vacancy_data['skills']:
-            try:
-                skill_obj = Skill.objects.get(name=skill)
-            except Skill.DoesNotExist:
-                return JsonResponse({"error": "Not skill found"}, status=404)
-            self.object.skills.add(skill_obj)
-
-        self.object.save()
-
-        #  self.object.skills.all().values_list("name", flat=True)
-        #  values_list Метод, который возвращает список значений поля ("name" - это
-        #  название столбца в таблице) список из списков)
-        # flat=True превращает этот список в плоский
-        return JsonResponse({
-            "id": self.object.id,
-            "text": self.object.text,
-            "slug": self.object.slug,
-            "status": self.object.status,
-            "created": self.object.created,
-            "user": self.object.user_id,
-            "skills": list(self.object.skills.all().values_list("name", flat=True))
-        })
+class VacancyUpdateView(UpdateAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyUpdateSerializer
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class VacancyDeleteView(DeleteView):
-    model = Vacancy
-    success_url = '/'  # URL на который перенаправляет пользователя после удаления записи
-
-    def delete(self, request, *args, **kwargs):
-        super().delete(request, *args, **kwargs)
-        return JsonResponse({"status": "ok"}, status=200)
+class VacancyDeleteView(DestroyAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyDestroySerializer
 
 
 class UserVacancyDetailView(View):
