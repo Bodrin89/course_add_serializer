@@ -1,5 +1,8 @@
-from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator
 from django.db import models
+
+from authentication.models import User
+from vacancies.validators import check_date_not_past
 
 
 class Skill(models.Model):
@@ -28,6 +31,8 @@ class Vacancy(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     skills = models.ManyToManyField(Skill)
     likes = models.IntegerField(default=0)
+    min_experience = models.IntegerField(null=True, validators=[MinValueValidator(0)])
+    update_at = models.DateField(null=True, validators=[check_date_not_past])
 
     class Meta:
         verbose_name = 'Вакансия'

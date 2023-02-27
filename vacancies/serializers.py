@@ -1,6 +1,8 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 from vacancies.models import Vacancy, Skill
+from vacancies.validators import NotInStatusValidator
 
 
 class SkillSerializer(serializers.ModelSerializer):
@@ -42,6 +44,11 @@ class VacancyCreateSerializer(serializers.ModelSerializer):
         queryset=Skill.objects.all(),
         slug_field="name"
     )
+    slug = serializers.CharField(
+        max_length=50,
+        validators=[UniqueValidator(queryset=Vacancy.objects.all())]  # Можно использовать Vacancy.object.filter
+    )
+    status = serializers.CharField(max_length=6, validators=[NotInStatusValidator(["closed", "open"])])
 
     class Meta:
         model = Vacancy
@@ -49,7 +56,7 @@ class VacancyCreateSerializer(serializers.ModelSerializer):
 
     def is_valid(self, *, raise_exception=False):
 
-        self.skills = self.initial_data.pop("skills")
+        self.skills = self.initial_data.pop("skills", [])
         return super().is_valid(raise_exception=raise_exception)
 
     def create(self, validated_data):
@@ -77,7 +84,7 @@ class VacancyUpdateSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "slug", "status", "created", "user", "skills"]
 
     def is_valid(self, *, raise_exception=False):
-        self.skills = self.initial_data.pop("skills")
+        self.skills = self.initial_data.pop("skills", [])
         return super().is_valid(raise_exception=raise_exception)
 
     def save(self):
