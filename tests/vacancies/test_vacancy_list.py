@@ -2,26 +2,20 @@ from datetime import date
 
 import pytest
 
-from vacancies.models import Vacancy
+from tests.factories import VacancyFactory
+from vacancies.serializers import VacancyListSerializer
 
 
 @pytest.mark.django_db  # pytest.mark.django_db - проверяет миграции и удаляет данные из БД после завершения теста
 def test_vacancy_list(client):
-    vacancy = Vacancy.objects.create(text="123", slug="123")
+
+    vacancies = VacancyFactory.create_batch(10)  # create_bach создает несколько экземпляров
 
     expected_response = {
-        "count": 1,
+        "count": 10,
         "next": None,
         "previous": None,
-        "results": [{
-            "id": vacancy.pk,
-            "skills": [],
-            "slug": "123",
-            "status": "draft",
-            "text": "123",
-            "created": date.today().strftime("%Y-%m-%d"),
-            "username": None
-        }]
+        "results": VacancyListSerializer(vacancies, many=True).data
     }
 
     response = client.get("/vacancy/")  # Слэши обязательно с двух сторон

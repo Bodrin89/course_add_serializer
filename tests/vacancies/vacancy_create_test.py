@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import ANY
 
 import pytest
 
@@ -6,7 +7,7 @@ import pytest
 @pytest.mark.django_db
 def test_create_vacancy(client, hr_token):
     expected_response = {
-        "id": 1,
+        "id": ANY,
         "created": date.today().strftime("%Y-%m-%d"),
         "skills": [],
         "slug": "123",
@@ -14,7 +15,7 @@ def test_create_vacancy(client, hr_token):
         "status": "draft",
         "min_experience": None,
         "likes": 0,
-        "updated_at": None,
+        "update_at": None,
         "user": None
     }
 

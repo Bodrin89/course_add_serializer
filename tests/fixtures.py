@@ -4,7 +4,7 @@ import pytest
 @pytest.fixture
 @pytest.mark.django_db
 def hr_token(client, django_user_model):
-    username = "hr",
+    username = "hr"
     password = "1234"
 
     # Создание django пользователя
