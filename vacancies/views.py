@@ -1,4 +1,3 @@
-
 from django.core.paginator import Paginator
 from django.db.models import Count, Avg, Q, F
 from django.http import HttpResponse, JsonResponse
@@ -7,6 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -24,6 +24,10 @@ def hello(request):
     return HttpResponse('Hello world')
 
 
+@extend_schema_view(
+    list=extend_schema(description="Retrieve skill list", summary="Skill list"),
+    create=extend_schema(description="Retrieve skill create", summary="Skill create")
+)
 class SkillsViewSet(ModelViewSet):
     queryset = Skill.objects.all()
     serializer_class = SkillSerializer
@@ -33,6 +37,10 @@ class VacancyListView(ListAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyListSerializer
 
+    @extend_schema(
+        description="Retrieve vacancy list",  # подробное описание view
+        summary="Vacancy list"  # краткое описание view
+    )
     def get(self, request, *args, **kwargs):
         vacancy_text = request.GET.get('text', None)
         # Поиск в таблице Vacancy во всех полях по вхождению подстроки в строку
@@ -116,7 +124,9 @@ def user_vacancies(request):
 class VacancyLikeView(UpdateAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyDetailSerializer
+    http_method_names = ["put"]  # метод, который будет отображаться в swagger
 
+    @extend_schema(deprecated=True)  # deprecated - помечает в swagger метод как устаревший
     def put(self, request, *args, **kwargs):
         # pk__in Это фильтрация по pk который входит в список
         # F Это класc который достает значение поля. update - обновляет значение поля 'likes'

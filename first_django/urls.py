@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.conf.urls.static import static
 from django.contrib import admin
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import routers
 
 from first_django import settings
@@ -35,6 +36,8 @@ urlpatterns = [
     path('company/', include('companies.urls')),
     path('user/', include('authentication.urls')),
 
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui', SpectacularSwaggerView.as_view(url_name='schema'))
 ]
 
 urlpatterns += router.urls
